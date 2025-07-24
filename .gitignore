@@ -1,0 +1,9 @@
+data/
+plots/
+processed/
+thre_plots/
+thre_process/
+__pycache__/
+thre_plots/
+thre_process/
+results/
