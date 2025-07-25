@@ -396,10 +396,11 @@ if __name__ == '__main__':
 
 	### Plot curves
 	if not args.test:
-		if 'TranAD' in model.name: testO = torch.roll(testO, 1, 0) 
-		plotter(f'{args.model}_{args.dataset}', testO, y_pred, loss, labels)
+		if 'TranAD' in model.name: testO = torch.roll(testO, 1, 0)
+		# 绘图函数需要 CPU 张量，所以在传入前调用 .cpu()
+		plotter(f'{args.model}_{args.dataset}', testO.cpu(), y_pred, loss, labels)
 	if 'TranAD' in model.name: testO = torch.roll(testO, 1, 0)
-	plotter(f'{args.model}_{args.dataset}_test', testO, y_pred, loss, labels)
+	plotter(f'{args.model}_{args.dataset}_test', testO.cpu(), y_pred, loss, labels)
 
 	### Scores
 	df = pd.DataFrame()
