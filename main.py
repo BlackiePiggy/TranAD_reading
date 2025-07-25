@@ -303,10 +303,8 @@ def backprop(epoch, model, data, dataO, optimizer, scheduler, training = True):
 			loss = loss[:, data.shape[1]-feats:data.shape[1]].view(-1, feats)
 			return loss.detach().numpy(), y_pred.detach().numpy()
 	elif 'TranAD' in model.name:
-		l = nn.MSELoss(reduction = 'none')
-		# 从模型获取设备信息，并将data_x移动到该设备
-		device = next(model.parameters()).device
-		data_x = torch.DoubleTensor(data).to(device)
+		l = nn.MSELoss(reduction='none')
+		data_x = data  # <-- 修改后的代码：直接使用已经存在于GPU上的data
 		dataset = TensorDataset(data_x, data_x)
 		bs = model.batch if training else len(data)
 		dataloader = DataLoader(dataset, batch_size = bs)
