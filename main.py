@@ -349,9 +349,36 @@ def backprop(epoch, model, data, dataO, optimizer, scheduler, training = True):
 			return loss.detach().cpu().numpy(), y_pred.detach().cpu().numpy()
 
 if __name__ == '__main__':
-	# 第1步：定义设备 (GPU or CPU)
-	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+	# 第1步：定义设备 (GPU or CPU/MPS)
+	if torch.backends.mps.is_available():
+		device = torch.device("mps")
+	else:
+		device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 	print(f"--- Using device: {device} ---")
+
+	# 如果只进行训练，那么就只需要加载训练数据集
+	if args.train_only:
+		train_loader, _, labels = load_dataset(args.dataset)
+		model, optimizer, scheduler, epoch, accuracy_list = load_model(args.model, labels.shape[1], device,
+																	   "exp3_x11")  # 加载模型，labels.shape[1]表示数据的特征维度，即1维
+		# 准备数据
+		trainD = next(iter(train_loader))
+		trainO = trainD
+		# 将主要数据张量移动到目标设备
+		trainD, trainO = trainD.to(device), trainO.to(device)
+		if model.name in ['Attention', 'DAGMM', 'USAD', 'MSCRED', 'CAE_M', 'GDN', 'MTAD_GAT', 'MAD_GAN'] or 'TranAD' in model.name:
+			trainD = convert_to_windows(trainD, model)
+		# 训练阶段
+		print(f'{color.HEADER}Training {args.model} on {args.dataset}{color.ENDC}')
+		num_epochs = 5; e = epoch + 1; start = time()
+		for e in tqdm(list(range(epoch + 1, epoch + num_epochs + 1))):
+			lossT, lr = backprop(e, model, trainD, trainO, optimizer, scheduler)
+			accuracy_list.append((lossT, lr))
+		print(color.BOLD + 'Training time: ' + "{:10.4f}".format(time() - start) + ' s' + color.ENDC)
+		save_model(model, optimizer, scheduler, e, accuracy_list)
+		plot_accuracies(accuracy_list, f'{args.model}_{args.dataset}')
+		# 训练完成后退出
+		exit()
 
 	train_loader, test_loader, labels = load_dataset(args.dataset)
 	if args.model in ['MERLIN']:

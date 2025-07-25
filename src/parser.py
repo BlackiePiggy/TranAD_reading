@@ -22,4 +22,10 @@ parser.add_argument('--retrain',
 parser.add_argument('--less', 
 					action='store_true', 
 					help="train using less data")
+parser.add_argument('--train_only',
+					action='store_true',
+					help="train the model only")
+parser.add_argument('--test_only',
+					action='store_true',
+					help="test the model only")
 args = parser.parse_args()
