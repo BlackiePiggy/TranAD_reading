@@ -101,7 +101,7 @@ def save_model(model, optimizer, scheduler, epoch, accuracy_list):
         'scheduler_state_dict': scheduler.state_dict(),
         'accuracy_list': accuracy_list}, file_path)
 
-def load_model(modelname, dims, model_dataset=args.dataset):
+def load_model(modelname, dims, device, model_dataset=args.dataset):
 	import src.models	#导入src文件夹下的models.py文件
 	model_class = getattr(src.models, modelname)	#获取models.py中与modelname同名的模型类，
 	model = model_class(dims).double()	#
@@ -119,6 +119,12 @@ def load_model(modelname, dims, model_dataset=args.dataset):
 	else:
 		print(f"{color.GREEN}Creating new model: {model.name}{color.ENDC}")
 		epoch = -1; accuracy_list = []
+
+	# 第2步：将模型移动到指定的设备
+	model.to(device)
+	# 打印一条确认信息，检查模型是否真的在GPU上
+	print(f"{color.GREEN}Model '{model.name}' is already loaded on: {next(model.parameters()).device}{color.ENDC}")
+
 	return model, optimizer, scheduler, epoch, accuracy_list
 
 def backprop(epoch, model, data, dataO, optimizer, scheduler, training = True):
@@ -298,7 +304,10 @@ def backprop(epoch, model, data, dataO, optimizer, scheduler, training = True):
 			return loss.detach().numpy(), y_pred.detach().numpy()
 	elif 'TranAD' in model.name:
 		l = nn.MSELoss(reduction = 'none')
-		data_x = torch.DoubleTensor(data); dataset = TensorDataset(data_x, data_x)
+		# 从模型获取设备信息，并将data_x移动到该设备
+		device = next(model.parameters()).device
+		data_x = torch.DoubleTensor(data).to(device)
+		dataset = TensorDataset(data_x, data_x)
 		bs = model.batch if training else len(data)
 		dataloader = DataLoader(dataset, batch_size = bs)
 		n = epoch + 1; w_size = model.n_window
@@ -341,25 +350,23 @@ def backprop(epoch, model, data, dataO, optimizer, scheduler, training = True):
 			return loss.detach().numpy(), y_pred.detach().numpy()
 
 if __name__ == '__main__':
+	# 第1步：定义设备 (GPU or CPU)
+	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+	print(f"--- Using device: {device} ---")
+
 	train_loader, test_loader, labels = load_dataset(args.dataset)
 	if args.model in ['MERLIN']:
 		eval(f'run_{args.model.lower()}(test_loader, labels, args.dataset)')
-	model, optimizer, scheduler, epoch, accuracy_list = load_model(args.model, labels.shape[1], "exp3_x11"
-																								""
-																								""
-																								""
-																								""
-																								""
-																								""
-																								""
-																								""
-																								""
-																								""
-																								"")  #加载模型，labels.shape[1]表示数据的特征维度，即1维
+	model, optimizer, scheduler, epoch, accuracy_list = load_model(args.model, labels.shape[1], device, "exp3_x11")  #加载模型，labels.shape[1]表示数据的特征维度，即1维
 
 	## Prepare data
 	trainD, testD = next(iter(train_loader)), next(iter(test_loader))
 	trainO, testO = trainD, testD
+
+	# 将主要数据张量移动到目标设备
+	trainD, testD = trainD.to(device), testD.to(device)  # <-- 添加此行
+	trainO, testO = trainO.to(device), testO.to(device)  # <-- 添加此行
+
 	if model.name in ['Attention', 'DAGMM', 'USAD', 'MSCRED', 'CAE_M', 'GDN', 'MTAD_GAT', 'MAD_GAN'] or 'TranAD' in model.name: 
 		trainD, testD = convert_to_windows(trainD, model), convert_to_windows(testD, model)
 
